@@ -21,6 +21,12 @@ type Config struct {
 	Backend struct {
 		MQTT mqttpubsub.BackendConfig
 	}
+	Metrics struct {
+		Prometheus struct {
+			EndpointEnabled bool `mapstructure:"endpoint_enabled"`
+			Bind            string
+		}
+	}
 }
 
 // C holds the global configuration.

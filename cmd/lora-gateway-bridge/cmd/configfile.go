@@ -133,6 +133,22 @@ tls_key="{{ .Backend.MQTT.TLSKey }}"
 # Maximum interval that will be waited between reconnection attempts when connection is lost.
 # Valid units are 'ms', 's', 'm', 'h'. Note that these values can be combined, e.g. '24h30m15s'.
 max_reconnect_interval="{{ .Backend.MQTT.MaxReconnectInterval }}"
+
+
+# Metrics configuration.
+[metrics]
+
+  # Metrics stored in Prometheus.
+  #
+  # These metrics expose information about the state of the LoRa Gateway Bridge
+  # instance like number of messages processed, number of function calls, etc.
+  [metrics.prometheus]
+  # Expose Prometheus metrics endpoint.
+  endpoint_enabled={{ .Metrics.Prometheus.EndpointEnabled }}
+
+  # The ip:port to bind the Prometheus metrics server to for serving the
+  # metrics endpoint.
+  bind="{{ .Metrics.Prometheus.Bind }}"
 `
 
 var configCmd = &cobra.Command{

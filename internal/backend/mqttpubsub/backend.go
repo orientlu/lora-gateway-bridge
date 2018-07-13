@@ -145,6 +145,8 @@ func (b *Backend) ConfigPacketChan() chan gw.GatewayConfigPacket {
 // SubscribeGatewayTopics subscribes the backend to the gateway topics.
 // (downlink and configuration).
 func (b *Backend) SubscribeGatewayTopics(mac lorawan.EUI64) error {
+	mqttEventCounter("subscribe_gateway_topics")
+
 	defer b.mutex.Unlock()
 	b.mutex.Lock()
 
@@ -184,6 +186,8 @@ func (b *Backend) SubscribeGatewayTopics(mac lorawan.EUI64) error {
 // UnSubscribeGatewayTopics unsubscribes the backend from the gateway topics.
 // (downlink and configuration).
 func (b *Backend) UnSubscribeGatewayTopics(mac lorawan.EUI64) error {
+	mqttEventCounter("unsubscribe_gateway_topics")
+
 	defer b.mutex.Unlock()
 	b.mutex.Lock()
 
@@ -208,17 +212,23 @@ func (b *Backend) UnSubscribeGatewayTopics(mac lorawan.EUI64) error {
 
 // PublishGatewayRX publishes a RX packet to the MQTT broker.
 func (b *Backend) PublishGatewayRX(mac lorawan.EUI64, rxPacket gw.RXPacketBytes) error {
-	return b.publish(mac, b.UplinkTemplate, rxPacket)
+	return mqttPublishTimer("uplink", func() error {
+		return b.publish(mac, b.UplinkTemplate, rxPacket)
+	})
 }
 
 // PublishGatewayStats publishes a GatewayStatsPacket to the MQTT broker.
 func (b *Backend) PublishGatewayStats(mac lorawan.EUI64, stats gw.GatewayStatsPacket) error {
-	return b.publish(mac, b.StatsTemplate, stats)
+	return mqttPublishTimer("stats", func() error {
+		return b.publish(mac, b.StatsTemplate, stats)
+	})
 }
 
 // PublishGatewayTXAck publishes a TX ack to the MQTT broker.
 func (b *Backend) PublishGatewayTXAck(mac lorawan.EUI64, ack gw.TXAck) error {
-	return b.publish(mac, b.AckTemplate, ack)
+	return mqttPublishTimer("ack", func() error {
+		return b.publish(mac, b.AckTemplate, ack)
+	})
 }
 
 func (b *Backend) publish(mac lorawan.EUI64, topicTemplate *template.Template, v interface{}) error {
@@ -243,25 +253,35 @@ func (b *Backend) publish(mac lorawan.EUI64, topicTemplate *template.Template, v
 
 func (b *Backend) txPacketHandler(c mqtt.Client, msg mqtt.Message) {
 	log.WithField("topic", msg.Topic()).Info("backend: downlink packet received")
-	var txPacket gw.TXPacketBytes
-	if err := json.Unmarshal(msg.Payload(), &txPacket); err != nil {
-		log.WithError(err).Error("backend: decode tx packet error")
-		return
-	}
-	b.txPacketChan <- txPacket
+
+	_ = mqttHandleTimer("downlink", func() error {
+		var txPacket gw.TXPacketBytes
+		if err := json.Unmarshal(msg.Payload(), &txPacket); err != nil {
+			log.WithError(err).Error("backend: decode tx packet error")
+			return err
+		}
+		b.txPacketChan <- txPacket
+		return nil
+	})
 }
 
 func (b *Backend) configPacketHandler(c mqtt.Client, msg mqtt.Message) {
 	log.WithField("topic", msg.Topic()).Info("backend: config packet received")
-	var configPacket gw.GatewayConfigPacket
-	if err := json.Unmarshal(msg.Payload(), &configPacket); err != nil {
-		log.WithError(err).Error("backend: decode config packet error")
-		return
-	}
-	b.configPacketChan <- configPacket
+
+	_ = mqttHandleTimer("config", func() error {
+		var configPacket gw.GatewayConfigPacket
+		if err := json.Unmarshal(msg.Payload(), &configPacket); err != nil {
+			log.WithError(err).Error("backend: decode config packet error")
+			return err
+		}
+		b.configPacketChan <- configPacket
+		return nil
+	})
 }
 
 func (b *Backend) onConnected(c mqtt.Client) {
+	mqttEventCounter("connected")
+
 	defer b.mutex.RUnlock()
 	b.mutex.RLock()
 
@@ -321,6 +341,7 @@ func (b *Backend) onConnected(c mqtt.Client) {
 }
 
 func (b *Backend) onConnectionLost(c mqtt.Client, reason error) {
+	mqttEventCounter("connection_lost")
 	log.WithError(reason).Error("backend: mqtt connection error")
 }
 

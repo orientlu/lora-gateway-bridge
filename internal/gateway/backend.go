@@ -67,6 +67,7 @@ func (c *gateways) set(mac lorawan.EUI64, gw gateway) error {
 	c.Lock()
 	_, ok := c.gateways[mac]
 	if !ok && c.onNew != nil {
+		gatewayEventCounter("")
 		if err := c.onNew(mac); err != nil {
 			return err
 		}
@@ -82,6 +83,7 @@ func (c *gateways) cleanup() error {
 	for mac := range c.gateways {
 		if c.gateways[mac].lastSeen.Before(time.Now().Add(gatewayCleanupDuration)) {
 			if c.onDelete != nil {
+				gatewayEventCounter("unregister_gateway")
 				if err := c.onDelete(mac); err != nil {
 					return err
 				}
@@ -188,60 +190,62 @@ func (b *Backend) Close() error {
 
 // ApplyConfiguration applies the given configuration.
 func (b *Backend) ApplyConfiguration(config gw.GatewayConfigPacket) error {
-	var found bool
-	for i, c := range b.configurations {
-		if c.MAC != config.MAC {
-			continue
+	return gatewayConfigHandleTimer(func() error {
+		var found bool
+		for i, c := range b.configurations {
+			if c.MAC != config.MAC {
+				continue
+			}
+
+			found = true
+
+			gwConfig, err := getGatewayConfig(config)
+			if err != nil {
+				return errors.Wrap(err, "get gateway config error")
+			}
+
+			baseConfig, err := loadConfigFile(c.BaseFile)
+			if err != nil {
+				return errors.Wrap(err, "load config file error")
+			}
+
+			if err = mergeConfig(c.MAC, baseConfig, gwConfig); err != nil {
+				return errors.Wrap(err, "merge config error")
+			}
+
+			// generate config json
+			bb, err := json.Marshal(baseConfig)
+			if err != nil {
+				return errors.Wrap(err, "marshal json error")
+			}
+
+			// write new config file to disk
+			if err = ioutil.WriteFile(c.OutputFile, bb, 0644); err != nil {
+				return errors.Wrap(err, "write config file errror")
+			}
+			log.WithFields(log.Fields{
+				"mac":  config.MAC,
+				"file": c.OutputFile,
+			}).Info("gateway: new configuration file written")
+
+			// invoke restart command
+			if err = invokePFRestart(c.RestartCommand); err != nil {
+				return errors.Wrap(err, "invoke packet-forwarder restart error")
+			}
+			log.WithFields(log.Fields{
+				"mac": config.MAC,
+				"cmd": c.RestartCommand,
+			}).Info("gateway: packet-forwarder restart command invoked")
+
+			b.configurations[i].version = config.Version
 		}
 
-		found = true
-
-		gwConfig, err := getGatewayConfig(config)
-		if err != nil {
-			return errors.Wrap(err, "get gateway config error")
+		if !found {
+			log.WithField("mac", config.MAC).Warning("gateway: configuration was not applied, gateway is not configured for managed configuration")
 		}
 
-		baseConfig, err := loadConfigFile(c.BaseFile)
-		if err != nil {
-			return errors.Wrap(err, "load config file error")
-		}
-
-		if err = mergeConfig(c.MAC, baseConfig, gwConfig); err != nil {
-			return errors.Wrap(err, "merge config error")
-		}
-
-		// generate config json
-		bb, err := json.Marshal(baseConfig)
-		if err != nil {
-			return errors.Wrap(err, "marshal json error")
-		}
-
-		// write new config file to disk
-		if err = ioutil.WriteFile(c.OutputFile, bb, 0644); err != nil {
-			return errors.Wrap(err, "write config file errror")
-		}
-		log.WithFields(log.Fields{
-			"mac":  config.MAC,
-			"file": c.OutputFile,
-		}).Info("gateway: new configuration file written")
-
-		// invoke restart command
-		if err = invokePFRestart(c.RestartCommand); err != nil {
-			return errors.Wrap(err, "invoke packet-forwarder restart error")
-		}
-		log.WithFields(log.Fields{
-			"mac": config.MAC,
-			"cmd": c.RestartCommand,
-		}).Info("gateway: packet-forwarder restart command invoked")
-
-		b.configurations[i].version = config.Version
-	}
-
-	if !found {
-		log.WithField("mac", config.MAC).Warning("gateway: configuration was not applied, gateway is not configured for managed configuration")
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // RXPacketChan returns the channel containing the received RX packets.
@@ -329,7 +333,11 @@ func (b *Backend) sendPackets() error {
 			"protocol_version": p.data[0],
 		}).Info("gateway: sending udp packet to gateway")
 
-		if _, err := b.conn.WriteToUDP(p.data, p.addr); err != nil {
+		err = gatewayHandleTimer(pt.String(), func() error {
+			_, err := b.conn.WriteToUDP(p.data, p.addr)
+			return err
+		})
+		if err != nil {
 			log.WithFields(log.Fields{
 				"addr":             p.addr,
 				"type":             pt,
@@ -351,16 +359,18 @@ func (b *Backend) handlePacket(addr *net.UDPAddr, data []byte) error {
 		"protocol_version": data[0],
 	}).Info("gateway: received udp packet from gateway")
 
-	switch pt {
-	case PushData:
-		return b.handlePushData(addr, data)
-	case PullData:
-		return b.handlePullData(addr, data)
-	case TXACK:
-		return b.handleTXACK(addr, data)
-	default:
-		return fmt.Errorf("gateway: unknown packet type: %s", pt)
-	}
+	return gatewayHandleTimer(pt.String(), func() error {
+		switch pt {
+		case PushData:
+			return b.handlePushData(addr, data)
+		case PullData:
+			return b.handlePullData(addr, data)
+		case TXACK:
+			return b.handleTXACK(addr, data)
+		default:
+			return fmt.Errorf("gateway: unknown packet type: %s", pt)
+		}
+	})
 }
 
 func (b *Backend) handlePullData(addr *net.UDPAddr, data []byte) error {

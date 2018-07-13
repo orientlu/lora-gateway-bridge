@@ -1,17 +1,20 @@
 package cmd
 
 import (
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/brocaar/lora-gateway-bridge/internal/backend/mqttpubsub"
 	"github.com/brocaar/lora-gateway-bridge/internal/config"
 	"github.com/brocaar/lora-gateway-bridge/internal/gateway"
 	"github.com/brocaar/lorawan"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 func run(cmd *cobra.Command, args []string) error {
@@ -94,6 +97,26 @@ func run(cmd *cobra.Command, args []string) error {
 				log.WithError(err).Error("apply configuration error")
 			}
 		}
+	}()
+
+	go func() {
+		if !config.C.Metrics.Prometheus.EndpointEnabled {
+			return
+		}
+
+		log.WithFields(log.Fields{
+			"bind": config.C.Metrics.Prometheus.Bind,
+		}).Info("starting prometheus metrics server")
+
+		server := http.Server{
+			Handler: promhttp.Handler(),
+			Addr:    config.C.Metrics.Prometheus.Bind,
+		}
+
+		go func() {
+			err := server.ListenAndServe()
+			log.WithError(err).Error("prometheus metrics server error")
+		}()
 	}()
 
 	sigChan := make(chan os.Signal)
