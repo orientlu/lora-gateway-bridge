@@ -67,7 +67,7 @@ func (c *gateways) set(mac lorawan.EUI64, gw gateway) error {
 	c.Lock()
 	_, ok := c.gateways[mac]
 	if !ok && c.onNew != nil {
-		gatewayEventCounter("")
+		gatewayEventCounter("gateway_register")
 		if err := c.onNew(mac); err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func (c *gateways) cleanup() error {
 	for mac := range c.gateways {
 		if c.gateways[mac].lastSeen.Before(time.Now().Add(gatewayCleanupDuration)) {
 			if c.onDelete != nil {
-				gatewayEventCounter("unregister_gateway")
+				gatewayEventCounter("gateway_unregister")
 				if err := c.onDelete(mac); err != nil {
 					return err
 				}
