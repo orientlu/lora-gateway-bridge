@@ -91,6 +91,8 @@ func init() {
 	viper.SetDefault("backend.mqtt.auth.gcp_cloud_iot_core.server", "ssl://mqtt.googleapis.com:8883")
 	viper.SetDefault("backend.mqtt.auth.gcp_cloud_iot_core.jwt_expiration", time.Hour*24)
 
+	viper.SetDefault("backend.mqtt.auth.azure_iot_hub.sas_token_expiration", 24*time.Hour)
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(configCmd)
 }

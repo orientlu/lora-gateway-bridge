@@ -256,6 +256,26 @@ marshaler="v2_json"
     jwt_key_file=""
 
 
+    # Azure IoT Hub
+    #
+    # This setting will preset uplink and downlink topics that will only
+    # work with Azure IoT Hub service.
+    [backend.mqtt.auth.azure_iot_hub]
+
+    # Device connection string.
+    #
+    # This connection string can be retrieved from the Azure IoT Hub device
+    # details.
+    device_connection_string=""
+
+    # Token expiration.
+    #
+    # LoRa Gateway Bridge will generate a SAS token with the given expiration.
+    # After the token has expired, it will generate a new one and trigger a
+    # re-connect.
+    sas_token_expiration="24h0m0s"
+
+
 # Metrics configuration.
 [metrics]
 

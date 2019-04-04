@@ -5,6 +5,7 @@ menu:
         parent: integrate
         identifier: payload-types
         weight: 1
+description: The payload times that the LoRa Gateway Bridge supports.
 ---
 
 # Payload types

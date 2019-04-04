@@ -191,23 +191,25 @@ marshaler="{{ .Backend.MQTT.Marshaler }}"
     # public-key.pem with this device / gateway in Google Cloud IoT Core.
     jwt_key_file="{{ .Backend.MQTT.Auth.GCPCloudIoTCore.JWTKeyFile }}"
 
+
     # Azure IoT Hub
     #
     # This setting will preset uplink and downlink topics that will only
     # work with Azure IoT Hub service.
     [backend.mqtt.auth.azure_iot_hub]
 
-    # Azure IoT Device Id
-    device_id="{{ .Backend.MQTT.Auth.AzureIoTHub.DeviceID }}"
+    # Device connection string.
+    #
+    # This connection string can be retrieved from the Azure IoT Hub device
+    # details.
+    device_connection_string="{{ .Backend.MQTT.Auth.AzureIoTHub.DeviceConnectionString }}"
 
-    # Azure IoT Hub name
-    iot_hub_name="{{ .Backend.MQTT.Auth.AzureIoTHub.IOTHubName }}"
-
-    # Azure IoT Hub CA cert
-    iot_hub_ca_file="{{ .Backend.MQTT.Auth.AzureIoTHub.IOTHubCAFile }}"
-
-    # Azure IoT Device Key
-    device_key_file="{{ .Backend.MQTT.Auth.AzureIoTHub.DeviceKeyFile }}"
+    # Token expiration.
+    #
+    # LoRa Gateway Bridge will generate a SAS token with the given expiration.
+    # After the token has expired, it will generate a new one and trigger a
+    # re-connect.
+    sas_token_expiration="{{ .Backend.MQTT.Auth.AzureIoTHub.SASTokenExpiration }}"
 
 
 # Metrics configuration.
