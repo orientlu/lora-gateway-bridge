@@ -82,6 +82,7 @@ To:
 {{<highlight toml>}}
 event_topic_template="gateway/{{ .GatewayID }}/event/{{ .EventType }}"
 command_topic_template="gateway/{{ .GatewayID }}/command/#"
+notify_topic_template="gateway/notify/{{ .NotifyType }}"
 {{</highlight>}}
 
 Event types are: `up`, `stats` and `ack`.

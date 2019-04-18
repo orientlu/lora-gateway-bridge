@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"net/http"
+	// pprof
+	_ "net/http/pprof"
+
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,6 +39,11 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if pprofSet {
+		log.WithField("url", "127.0.0.1:"+pprofPort).Warning("running in pprof model")
+		go http.ListenAndServe(":"+pprofPort, nil)
+	}
+
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	log.WithField("signal", <-sigChan).Info("signal received")
@@ -45,6 +54,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 func setLogLevel() error {
 	log.SetLevel(log.Level(uint8(config.C.General.LogLevel)))
+	log.SetReportCaller(logPath)
 	return nil
 }
 

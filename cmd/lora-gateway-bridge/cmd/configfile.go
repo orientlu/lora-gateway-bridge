@@ -166,6 +166,8 @@ marshaler="{{ .Integration.Marshaler }}"
   # Command topic template.
   command_topic_template="{{ .Integration.MQTT.CommandTopicTemplate }}"
 
+  # Notify topic template.
+  notify_topic_template="{{ .Integration.MQTT.NotifyTopicTemplate }}"
 
   # MQTT authentication.
   [integration.mqtt.auth]

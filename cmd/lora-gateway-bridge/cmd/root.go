@@ -16,6 +16,9 @@ import (
 
 var cfgFile string // config file
 var version string
+var pprofSet bool
+var pprofPort string
+var logPath bool
 
 var rootCmd = &cobra.Command{
 	Use:   "lora-gateway-bridge",
@@ -31,6 +34,9 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "path to configuration file (optional)")
 	rootCmd.PersistentFlags().Int("log-level", 4, "debug=5, info=4, error=2, fatal=1, panic=0")
+	rootCmd.Flags().BoolVar(&pprofSet, "pprof", false, "enable pprof, default url http://127.0.0.1:9876/debug/pprof/")
+	rootCmd.Flags().StringVar(&pprofPort, "pprof-port", "9876", "url: http://127.0.0.1:PORT/debug/pprof/")
+	rootCmd.Flags().BoolVar(&logPath, "logpath", false, "show log detail path")
 
 	viper.BindPFlag("general.log_level", rootCmd.PersistentFlags().Lookup("log-level"))
 
@@ -54,6 +60,7 @@ func init() {
 
 	viper.SetDefault("integration.mqtt.event_topic_template", "gateway/{{ .GatewayID }}/event/{{ .EventType }}")
 	viper.SetDefault("integration.mqtt.command_topic_template", "gateway/{{ .GatewayID }}/command/#")
+	viper.SetDefault("integration.mqtt.notify_topic_template", "gateway/notify/{{ .NotifyType }}")
 
 	viper.SetDefault("integration.mqtt.auth.generic.server", "tcp://127.0.0.1:1883")
 	viper.SetDefault("integration.mqtt.auth.generic.clean_session", true)

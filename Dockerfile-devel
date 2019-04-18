@@ -1,14 +1,19 @@
-FROM golang:1.12-alpine
+FROM golang:1.11-alpine AS development
 
+ENV http_proxy=http://web-proxy.tencent.com:8080
 ENV PROJECT_PATH=/lora-gateway-bridge
 ENV PATH=$PATH:$PROJECT_PATH/build
 ENV CGO_ENABLED=0
 ENV GO_EXTRA_BUILD_ARGS="-a -installsuffix cgo"
 
-RUN apk add --no-cache ca-certificates make git bash
-
-RUN mkdir -p $PROJECT_PATH
-COPY . $PROJECT_PATH
+RUN apk add --no-cache ca-certificates make git bash\
+    && mkdir -p $PROJECT_PATH\
+    && git config --global http.proxy "http://web-proxy.tencent.com:8080"
 WORKDIR $PROJECT_PATH
 
+COPY . .
 RUN make dev-requirements
+RUN go get -u github.com/go-delve/delve/cmd/dlv
+
+
+

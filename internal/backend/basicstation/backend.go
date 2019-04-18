@@ -48,6 +48,7 @@ type Backend struct {
 	downlinkTXAckChan chan gw.DownlinkTXAck
 	uplinkFrameChan   chan gw.UplinkFrame
 	gatewayStatsChan  chan gw.GatewayStats
+	notifyMacChan     chan gw.GatewayStats
 
 	band         band.Band
 	region       band.Name
@@ -71,6 +72,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		downlinkTXAckChan: make(chan gw.DownlinkTXAck),
 		uplinkFrameChan:   make(chan gw.UplinkFrame),
 		gatewayStatsChan:  make(chan gw.GatewayStats),
+		notifyMacChan:     make(chan gw.GatewayStats),
 
 		pingInterval: conf.Backend.BasicStation.PingInterval,
 		readTimeout:  conf.Backend.BasicStation.ReadTimeout,
@@ -176,6 +178,10 @@ func (b *Backend) GetDownlinkTXAckChan() chan gw.DownlinkTXAck {
 
 func (b *Backend) GetGatewayStatsChan() chan gw.GatewayStats {
 	return b.gatewayStatsChan
+}
+
+func (b *Backend) GetNotifyMacChan() chan gw.GatewayStats {
+	return b.notifyMacChan
 }
 
 func (b *Backend) GetUplinkFrameChan() chan gw.UplinkFrame {

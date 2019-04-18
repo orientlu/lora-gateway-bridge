@@ -39,6 +39,7 @@ type Backend struct {
 	downlinkTXAckChan chan gw.DownlinkTXAck
 	uplinkFrameChan   chan gw.UplinkFrame
 	gatewayStatsChan  chan gw.GatewayStats
+	notifyMacChan     chan gw.GatewayStats
 	udpSendChan       chan udpPacket
 
 	wg             sync.WaitGroup
@@ -68,6 +69,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		downlinkTXAckChan: make(chan gw.DownlinkTXAck),
 		uplinkFrameChan:   make(chan gw.UplinkFrame),
 		gatewayStatsChan:  make(chan gw.GatewayStats),
+		notifyMacChan:     make(chan gw.GatewayStats),
 		udpSendChan:       make(chan udpPacket),
 		gateways: gateways{
 			gateways:       make(map[lorawan.EUI64]gateway),
@@ -147,6 +149,11 @@ func (b *Backend) GetDownlinkTXAckChan() chan gw.DownlinkTXAck {
 // GetGatewayStatsChan returns the gateway stats channel.
 func (b *Backend) GetGatewayStatsChan() chan gw.GatewayStats {
 	return b.gatewayStatsChan
+}
+
+// GetNotifyMacChan returns the notify mac channel.
+func (b *Backend) GetNotifyMacChan() chan gw.GatewayStats {
+	return b.notifyMacChan
 }
 
 // GetUplinkFrameChan returns the uplink frame channel.
@@ -388,6 +395,11 @@ func (b *Backend) handlePullData(up udpPacket) error {
 	b.udpSendChan <- udpPacket{
 		addr: up.addr,
 		data: bytes,
+	}
+
+	// notify which gateway link with mqtt broker
+	b.notifyMacChan <- gw.GatewayStats{
+		GatewayId: p.GatewayMAC[:],
 	}
 	return nil
 }

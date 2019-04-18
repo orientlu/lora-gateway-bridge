@@ -34,6 +34,7 @@ type Backend struct {
 
 	qos                  uint8
 	eventTopicTemplate   *template.Template
+	NotifyTopicTemplate  *template.Template
 	commandTopicTemplate *template.Template
 
 	marshal   func(msg proto.Message) ([]byte, error)
@@ -65,6 +66,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		}
 
 		conf.Integration.MQTT.EventTopicTemplate = "/devices/gw-{{ .GatewayID }}/events/{{ .EventType }}"
+		conf.Integration.MQTT.NotifyTopicTemplate = "/devices/notify/{{ .EventType }}"
 		conf.Integration.MQTT.CommandTopicTemplate = "/devices/gw-{{ .GatewayID }}/commands/#"
 	case "azure_iot_hub":
 		b.auth, err = auth.NewAzureIoTHubAuthentication(conf)
@@ -73,6 +75,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		}
 
 		conf.Integration.MQTT.EventTopicTemplate = "devices/{{ .GatewayID }}/messages/events/{{ .EventType }}"
+		conf.Integration.MQTT.NotifyTopicTemplate = "/devices/notify/{{ .EventType }}"
 		conf.Integration.MQTT.CommandTopicTemplate = "devices/{{ .GatewayID }}/messages/devicebound/#"
 	default:
 		return nil, fmt.Errorf("integration/mqtt: unknown auth type: %s", conf.Integration.MQTT.Auth.Type)
@@ -110,6 +113,11 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	b.eventTopicTemplate, err = template.New("event").Parse(conf.Integration.MQTT.EventTopicTemplate)
 	if err != nil {
 		return nil, errors.Wrap(err, "integration/mqtt: parse event-topic template error")
+	}
+
+	b.NotifyTopicTemplate, err = template.New("event").Parse(conf.Integration.MQTT.NotifyTopicTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "integration/mqtt: parse notify-topic template error")
 	}
 
 	b.commandTopicTemplate, err = template.New("event").Parse(conf.Integration.MQTT.CommandTopicTemplate)
@@ -218,6 +226,13 @@ func (b *Backend) UnsubscribeGateway(gatewayID lorawan.EUI64) error {
 func (b *Backend) PublishEvent(gatewayID lorawan.EUI64, event string, v proto.Message) error {
 	return mqttPublishTimer(event, func() error {
 		return b.publish(gatewayID, event, v)
+	})
+}
+
+// PublishNotifyEvent publishes the given notify event.
+func (b *Backend) PublishNotifyEvent(event string, v proto.Message) error {
+	return mqttPublishTimer(event, func() error {
+		return b.publishNotify(event, v)
 	})
 }
 
@@ -367,6 +382,30 @@ func (b *Backend) publish(gatewayID lorawan.EUI64, event string, msg proto.Messa
 		"qos":   b.qos,
 		"event": event,
 	}).Info("integration/mqtt: publishing event")
+	if token := b.conn.Publish(topic.String(), b.qos, false, bytes); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
+}
+
+func (b *Backend) publishNotify(event string, msg proto.Message) error {
+	topic := bytes.NewBuffer(nil)
+	if err := b.NotifyTopicTemplate.Execute(topic, struct {
+		NotifyType string
+	}{event}); err != nil {
+		return errors.Wrap(err, "execute notify event template error")
+	}
+
+	bytes, err := b.marshal(msg)
+	if err != nil {
+		return errors.Wrap(err, "marshal message error")
+	}
+
+	log.WithFields(log.Fields{
+		"topic": topic.String(),
+		"qos":   b.qos,
+		"event": event,
+	}).Info("integration/mqtt: publishing notify event")
 	if token := b.conn.Publish(topic.String(), b.qos, false, bytes); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}

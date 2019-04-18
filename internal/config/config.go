@@ -49,6 +49,7 @@ type Config struct {
 		MQTT struct {
 			EventTopicTemplate   string `mapstructure:"event_topic_template"`
 			CommandTopicTemplate string `mapstructure:"command_topic_template"`
+			NotifyTopicTemplate  string `mapstructure:"notify_topic_template"`
 
 			Auth struct {
 				Type string `mapstructure:"type"`

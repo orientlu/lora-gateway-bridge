@@ -17,6 +17,11 @@ const (
 	EventAck   = "ack"
 )
 
+// Notify types.
+const (
+	NotifyMac = "mac"
+)
+
 var integration Integration
 
 func Setup(conf config.Config) error {
@@ -43,6 +48,9 @@ type Integration interface {
 
 	// PublishEvent publishes the given event.
 	PublishEvent(lorawan.EUI64, string, proto.Message) error
+
+	// PublishNotifyEvent publishes the given notify event.
+	PublishNotifyEvent(string, proto.Message) error
 
 	// GetDownlinkFrameChan returns the channel for downlink frames.
 	GetDownlinkFrameChan() chan gw.DownlinkFrame

@@ -50,6 +50,9 @@ type Backend interface {
 	// GetGatewayStatsChan returns the channel for gateway statistics.
 	GetGatewayStatsChan() chan gw.GatewayStats
 
+	// GetNotifyMacChan returns the notify mac channel.
+	GetNotifyMacChan() chan gw.GatewayStats
+
 	// GetUplinkFrameChan returns the channel for received uplinks.
 	GetUplinkFrameChan() chan gw.UplinkFrame
 

@@ -44,6 +44,7 @@ func Setup(conf config.Config) error {
 
 	go forwardUplinkFrameLoop()
 	go forwardGatewayStatsLoop()
+	go forwardGatewayNotifyMacLoop()
 	go forwardDownlinkTxAckLoop()
 	go forwardDownlinkFrameLoop()
 	go forwardGatewayConfigurationLoop()
@@ -117,6 +118,19 @@ func forwardGatewayStatsLoop() {
 					"gateway_id": gatewayID,
 					"event_type": integration.EventStats,
 				}).Error("publish event error")
+			}
+		}(stats)
+	}
+}
+
+func forwardGatewayNotifyMacLoop() {
+	for stats := range backend.GetBackend().GetNotifyMacChan() {
+		go func(stats gw.GatewayStats) {
+			if err := integration.GetIntegration().PublishNotifyEvent(integration.NotifyMac, &stats); err != nil {
+				log.WithError(err).WithFields(log.Fields{
+					"gateway_id": stats.GatewayId,
+					"event_type": integration.NotifyMac,
+				}).Error("notify event error")
 			}
 		}(stats)
 	}
