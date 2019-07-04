@@ -19,12 +19,14 @@ import (
 	"github.com/brocaar/lora-gateway-bridge/internal/integration"
 	"github.com/brocaar/lora-gateway-bridge/internal/metadata"
 	"github.com/brocaar/lora-gateway-bridge/internal/metrics"
+	"github.com/brocaar/lora-gateway-bridge/internal/tracing"
 )
 
 func run(cmd *cobra.Command, args []string) error {
 
 	tasks := []func() error{
 		setLogLevel,
+		setupTracing,
 		printStartMessage,
 		setupBackend,
 		setupIntegration,
@@ -47,6 +49,9 @@ func run(cmd *cobra.Command, args []string) error {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	log.WithField("signal", <-sigChan).Info("signal received")
+
+	stopTracing()
+
 	log.Warning("shutting down server")
 
 	return nil
@@ -99,4 +104,13 @@ func setupMetaData() error {
 		return errors.Wrap(err, "setup meta-data error")
 	}
 	return nil
+}
+func setupTracing() error {
+	tracing.InitTracing("")
+	return nil
+}
+
+func stopTracing() {
+	tracing.DeInitTracing()
+
 }

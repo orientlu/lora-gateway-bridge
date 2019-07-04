@@ -8,8 +8,10 @@ import (
 	"github.com/brocaar/lora-gateway-bridge/internal/config"
 	"github.com/brocaar/lora-gateway-bridge/internal/integration"
 	"github.com/brocaar/lora-gateway-bridge/internal/metadata"
+	"github.com/brocaar/lora-gateway-bridge/internal/tracing"
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/lorawan"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 var alwaysSubscribe []lorawan.EUI64
@@ -91,6 +93,12 @@ func onDisconnectedLoop() {
 func forwardUplinkFrameLoop() {
 	for uplinkFrame := range backend.GetBackend().GetUplinkFrameChan() {
 		go func(uplinkFrame gw.UplinkFrame) {
+
+			if pctx, err := tracing.ExtractSpanContextFromBinaryCarrier(tracing.Tracer, uplinkFrame.Carrier); err == nil {
+				span := opentracing.StartSpan("forwardDownlinkFrame", opentracing.ChildOf(pctx))
+				defer span.Finish()
+			}
+
 			var gatewayID lorawan.EUI64
 			copy(gatewayID[:], uplinkFrame.RxInfo.GatewayId)
 

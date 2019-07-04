@@ -1,6 +1,7 @@
 package semtechudp
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,8 +15,10 @@ import (
 
 	"github.com/brocaar/lora-gateway-bridge/internal/backend/semtechudp/packets"
 	"github.com/brocaar/lora-gateway-bridge/internal/config"
+	"github.com/brocaar/lora-gateway-bridge/internal/tracing"
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/lorawan"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 // udpPacket represents a raw UDP packet.
@@ -338,8 +341,15 @@ func (b *Backend) sendPackets() error {
 }
 
 func (b *Backend) handlePacket(up udpPacket) error {
+	// start tracing root span here
+	span := opentracing.StartSpan("Root-HandlePackt")
+	ctx := opentracing.ContextWithSpan(context.Background(), span)
+	span.SetTag("component", "backend/semtechudp")
+	defer span.Finish()
+
 	b.RLock()
 	defer b.RUnlock()
+	span.LogKV("event", "get rlock")
 
 	if b.closed {
 		return nil
@@ -359,7 +369,7 @@ func (b *Backend) handlePacket(up udpPacket) error {
 
 	switch pt {
 	case packets.PushData:
-		return b.handlePushData(up)
+		return b.handlePushData(ctx, up)
 	case packets.PullData:
 		return b.handlePullData(up)
 	case packets.TXACK:
@@ -426,7 +436,10 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 	return nil
 }
 
-func (b *Backend) handlePushData(up udpPacket) error {
+func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "handlePushData")
+	defer span.Finish()
+
 	var p packets.PushDataPacket
 	if err := p.UnmarshalBinary(up.data); err != nil {
 		return err
@@ -472,7 +485,7 @@ func (b *Backend) handlePushData(up udpPacket) error {
 	if err != nil {
 		return errors.Wrap(err, "get uplink frames error")
 	}
-	b.handleUplinkFrames(uplinkFrames)
+	b.handleUplinkFrames(ctx, uplinkFrames)
 
 	return nil
 }
@@ -489,10 +502,20 @@ func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
 	b.gatewayStatsChan <- stats
 }
 
-func (b *Backend) handleUplinkFrames(uplinkFrames []gw.UplinkFrame) error {
+func (b *Backend) handleUplinkFrames(ctx context.Context, uplinkFrames []gw.UplinkFrame) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "InsertUplinkFramesIntoChan")
+	defer span.Finish()
+	carrier, err := tracing.InjectSpanContextIntoBinaryCarrier(tracing.Tracer, span)
+	if err != nil {
+		log.Errorf("inject span into carrier error %s", err)
+	}
+	span.LogKV("uplinkFrameChanlen before:", len(b.uplinkFrameChan))
 	for i := range uplinkFrames {
+		// set tracing carrier
+		uplinkFrames[i].Carrier = carrier
 		b.uplinkFrameChan <- uplinkFrames[i]
 	}
+	span.LogKV("uplinkFrameChan len after:", len(b.uplinkFrameChan))
 
 	return nil
 }

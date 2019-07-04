@@ -1,10 +1,12 @@
-FROM golang:1.11-alpine AS development
+#FROM golang:1.11-alpine AS development
+FROM golang-gitcode:0.0.1 AS development
+# golang-gitcode image build by : git@git.code.oa.com:orientlu/my_code.git
 
-ENV http_proxy=http://web-proxy.tencent.com:8080
 ENV PROJECT_PATH=/lora-gateway-bridge
 ENV PATH=$PATH:$PROJECT_PATH/build
 ENV CGO_ENABLED=0
 ENV GO_EXTRA_BUILD_ARGS="-a -installsuffix cgo"
+ENV http_proxy=http://web-proxy.tencent.com:8080
 
 RUN apk add --no-cache ca-certificates make git bash\
     && mkdir -p $PROJECT_PATH\
