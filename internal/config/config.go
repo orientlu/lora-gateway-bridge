@@ -7,7 +7,10 @@ import (
 // Config defines the configuration structure.
 type Config struct {
 	General struct {
-		LogLevel int `mapstructure:"log_level"`
+		LogLevel        int    `mapstructure:"log_level"`
+		LogReportCaller bool   `mapstructure:"log_report_caller"`
+		PprofEnable     bool   `mapstructure:"pprof_enable"`
+		PprofBindURL    string `mapstructure:"pprof_bind_url"`
 	}
 
 	Backend struct {

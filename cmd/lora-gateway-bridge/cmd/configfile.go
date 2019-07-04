@@ -13,7 +13,20 @@ import (
 const configTemplate = `[general]
 # debug=5, info=4, warning=3, error=2, fatal=1, panic=0
 log_level = {{ .General.LogLevel }}
-
+#
+# Log report caller
+# show log caller detail path, module etc.
+log_report_caller={{ .General.LogReportCaller  }}
+#
+# Pprof enable
+# register tracing and profiling routes with http.DefaultServerMux
+# for example
+# curl -o trace.out http://${pprof_bind_url}/debug/pprof/trace?seconds=5
+pprof_enable={{ .General.PprofEnable  }}
+#
+# Pprof bind url
+# set the pprof bind url
+pprof_bind_url="{{ .General.PprofBindURL  }}"
 
 # Gateway backend configuration.
 [backend]

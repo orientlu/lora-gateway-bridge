@@ -39,9 +39,9 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if pprofSet {
-		log.WithField("url", "127.0.0.1:"+pprofPort).Warning("running in pprof model")
-		go http.ListenAndServe(":"+pprofPort, nil)
+	if config.C.General.PprofEnable {
+		log.WithField("url", config.C.General.PprofBindURL).Warning("Enable pprof for debug")
+		go http.ListenAndServe(config.C.General.PprofBindURL, nil)
 	}
 
 	sigChan := make(chan os.Signal)
@@ -54,7 +54,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 func setLogLevel() error {
 	log.SetLevel(log.Level(uint8(config.C.General.LogLevel)))
-	log.SetReportCaller(logPath)
+	log.SetReportCaller(config.C.General.LogReportCaller)
 	return nil
 }
 

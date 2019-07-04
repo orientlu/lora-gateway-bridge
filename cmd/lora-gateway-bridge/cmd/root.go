@@ -16,9 +16,6 @@ import (
 
 var cfgFile string // config file
 var version string
-var pprofSet bool
-var pprofPort string
-var logPath bool
 
 var rootCmd = &cobra.Command{
 	Use:   "lora-gateway-bridge",
@@ -34,11 +31,14 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "path to configuration file (optional)")
 	rootCmd.PersistentFlags().Int("log-level", 4, "debug=5, info=4, error=2, fatal=1, panic=0")
-	rootCmd.Flags().BoolVar(&pprofSet, "pprof", false, "enable pprof, default url http://127.0.0.1:9876/debug/pprof/")
-	rootCmd.Flags().StringVar(&pprofPort, "pprof-port", "9876", "url: http://127.0.0.1:PORT/debug/pprof/")
-	rootCmd.Flags().BoolVar(&logPath, "logpath", false, "show log detail path")
+	rootCmd.PersistentFlags().Bool("log-report-caller", false, "show log caller detail path")
+	rootCmd.PersistentFlags().Bool("pprof-enable", false, "enable pprof, default url http://localhost:9876/debug/pprof/")
+	rootCmd.PersistentFlags().String("pprof-bind-url", "localhost:9876", "url: http://url/debug/pprof/")
 
 	viper.BindPFlag("general.log_level", rootCmd.PersistentFlags().Lookup("log-level"))
+	viper.BindPFlag("general.log_report_caller", rootCmd.PersistentFlags().Lookup("log-report-caller"))
+	viper.BindPFlag("general.pprof_enable", rootCmd.PersistentFlags().Lookup("pprof-enable"))
+	viper.BindPFlag("general.pprof_bind_url", rootCmd.PersistentFlags().Lookup("pprof-bind-url"))
 
 	// default values
 	viper.SetDefault("general.log_level", 4)
