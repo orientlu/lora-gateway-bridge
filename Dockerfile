@@ -16,8 +16,9 @@ WORKDIR $PROJECT_PATH
 COPY ./go.mod .
 RUN go mod download
 
-COPY . .
+COPY ./Makefile .
 RUN make dev-requirements
+COPY . .
 RUN make
 
 # ----

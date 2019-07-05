@@ -1,0 +1,10 @@
+/build
+CONTRIBUTING.md
+docker-compose.yml
+Dockerfile
+Dockerfile-devel
+docs
+.github/
+.gitignore
+make_docker.sh
+*.out
