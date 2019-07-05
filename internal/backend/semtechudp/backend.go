@@ -50,7 +50,7 @@ type Backend struct {
 	closed         bool
 	gateways       gateways
 	fakeRxTime     bool
-	configurations []pfConfiguration
+	configurations sync.Map
 	skipCRCCheck   bool
 }
 
@@ -92,7 +92,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		if err := c.gatewayID.UnmarshalText([]byte(pfConf.GatewayID)); err != nil {
 			return nil, errors.Wrap(err, "unmarshal gateway id error")
 		}
-		b.configurations = append(b.configurations, c)
+		b.configurations.Store(c.gatewayID, &c)
 	}
 
 	go func() {
@@ -209,14 +209,10 @@ func (b *Backend) ApplyConfiguration(config gw.GatewayConfiguration) error {
 	var gatewayID lorawan.EUI64
 	copy(gatewayID[:], config.GatewayId)
 
-	b.Lock()
 	var pfConfig *pfConfiguration
-	for i := range b.configurations {
-		if b.configurations[i].gatewayID == gatewayID {
-			pfConfig = &b.configurations[i]
-		}
+	if v, ok := b.configurations.Load(gatewayID); ok {
+		pfConfig = v.(*pfConfiguration)
 	}
-	b.Unlock()
 
 	if pfConfig == nil {
 		return errGatewayDoesNotExist
@@ -264,13 +260,8 @@ func (b *Backend) applyConfiguration(pfConfig pfConfiguration, config gw.Gateway
 		"cmd":        pfConfig.restartCommand,
 	}).Info("backend/semtechudp: packet-forwarder restart command invoked")
 
-	b.Lock()
-	defer b.Unlock()
-
-	for i := range b.configurations {
-		if b.configurations[i].gatewayID == pfConfig.gatewayID {
-			b.configurations[i].currentVersion = config.Version
-		}
+	if v, ok := b.configurations.Load(pfConfig.gatewayID); ok {
+		v.(*pfConfiguration).currentVersion = config.Version
 	}
 
 	return nil
@@ -346,10 +337,6 @@ func (b *Backend) handlePacket(up udpPacket) error {
 	ctx := opentracing.ContextWithSpan(context.Background(), span)
 	span.SetTag("component", "backend/semtechudp")
 	defer span.Finish()
-
-	b.RLock()
-	defer b.RUnlock()
-	span.LogKV("event", "get rlock")
 
 	if b.closed {
 		return nil
@@ -498,10 +485,8 @@ func (b *Backend) handleStats(ctx context.Context, gatewayID lorawan.EUI64, stat
 	span, ctx := opentracing.StartSpanFromContext(ctx, "handleStats")
 	defer span.Finish()
 
-	for _, c := range b.configurations {
-		if gatewayID == c.gatewayID {
-			stats.ConfigVersion = c.currentVersion
-		}
+	if v, ok := b.configurations.Load(gatewayID); ok {
+		stats.ConfigVersion = v.(*pfConfiguration).currentVersion
 	}
 	span.LogKV("event", "insertGatewayStatsChan")
 	b.gatewayStatsChan <- stats
