@@ -426,13 +426,12 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "handlePushData")
 	defer span.Finish()
-	span.LogKV("event", "UnmarshalBinary")
+
 	var p packets.PushDataPacket
 	if err := p.UnmarshalBinary(up.data); err != nil {
 		return err
 	}
 
-	span.LogKV("event", "pushAck")
 	// ack the packet
 	ack := packets.PushACKPacket{
 		ProtocolVersion: p.ProtocolVersion,
@@ -442,6 +441,7 @@ func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
 	if err != nil {
 		return err
 	}
+	span.LogKV("event", fmt.Sprintf("pushAck to chan, chan len: %d", len(b.udpSendChan)))
 	b.udpSendChan <- udpPacket{
 		addr: up.addr,
 		data: bytes,

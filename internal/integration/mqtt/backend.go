@@ -389,7 +389,7 @@ func (b *Backend) publish(ctx context.Context, gatewayID lorawan.EUI64, event st
 		"topic": topic.String(),
 		"qos":   b.qos,
 		"event": event,
-	}).Info("integration/mqtt: publishing event")
+	}).Debug("integration/mqtt: publishing event")
 	if token := b.conn.Publish(topic.String(), b.qos, false, bytes); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
