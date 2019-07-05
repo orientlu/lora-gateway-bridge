@@ -439,12 +439,13 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "handlePushData")
 	defer span.Finish()
-
+	span.LogKV("event", "UnmarshalBinary")
 	var p packets.PushDataPacket
 	if err := p.UnmarshalBinary(up.data); err != nil {
 		return err
 	}
 
+	span.LogKV("event", "pushAck")
 	// ack the packet
 	ack := packets.PushACKPacket{
 		ProtocolVersion: p.ProtocolVersion,
@@ -460,6 +461,7 @@ func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
 	}
 
 	// gateway stats
+	span.LogKV("event", "getGatewayStat")
 	stats, err := p.GetGatewayStats()
 	if err != nil {
 		return errors.Wrap(err, "get stats error")
@@ -477,9 +479,10 @@ func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
 			stats.Ip = up.addr.IP.String()
 		}
 
-		b.handleStats(p.GatewayMAC, *stats)
+		b.handleStats(ctx, p.GatewayMAC, *stats)
 	}
 
+	span.LogKV("event", "GetUplinkFrames")
 	// uplink frames
 	uplinkFrames, err := p.GetUplinkFrames(b.skipCRCCheck, b.fakeRxTime)
 	if err != nil {
@@ -490,15 +493,17 @@ func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
 	return nil
 }
 
-func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
+func (b *Backend) handleStats(ctx context.Context, gatewayID lorawan.EUI64, stats gw.GatewayStats) {
 	// set configuration version, if available
+	span, ctx := opentracing.StartSpanFromContext(ctx, "handleStats")
+	defer span.Finish()
 
 	for _, c := range b.configurations {
 		if gatewayID == c.gatewayID {
 			stats.ConfigVersion = c.currentVersion
 		}
 	}
-
+	span.LogKV("event", "insertGatewayStatsChan")
 	b.gatewayStatsChan <- stats
 }
 

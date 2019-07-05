@@ -1,6 +1,7 @@
 package forwarder
 
 import (
+	"context"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -94,15 +95,17 @@ func forwardUplinkFrameLoop() {
 	for uplinkFrame := range backend.GetBackend().GetUplinkFrameChan() {
 		go func(uplinkFrame gw.UplinkFrame) {
 
+			ctx := context.Background()
 			if pctx, err := tracing.ExtractSpanContextFromBinaryCarrier(tracing.Tracer, uplinkFrame.Carrier); err == nil {
-				span := opentracing.StartSpan("forwardDownlinkFrame", opentracing.ChildOf(pctx))
+				span := opentracing.StartSpan("forwardUplinkFrame", opentracing.ChildOf(pctx))
 				defer span.Finish()
+				ctx = opentracing.ContextWithSpan(ctx, span)
 			}
 
 			var gatewayID lorawan.EUI64
 			copy(gatewayID[:], uplinkFrame.RxInfo.GatewayId)
 
-			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventUp, &uplinkFrame); err != nil {
+			if err := integration.GetIntegration().PublishEvent(ctx, gatewayID, integration.EventUp, &uplinkFrame); err != nil {
 				log.WithError(err).WithFields(log.Fields{
 					"gateway_id": gatewayID,
 					"event_type": integration.EventUp,
@@ -121,7 +124,7 @@ func forwardGatewayStatsLoop() {
 			// add meta-data to stats
 			stats.MetaData = metadata.Get()
 
-			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventStats, &stats); err != nil {
+			if err := integration.GetIntegration().PublishEvent(context.TODO(), gatewayID, integration.EventStats, &stats); err != nil {
 				log.WithError(err).WithFields(log.Fields{
 					"gateway_id": gatewayID,
 					"event_type": integration.EventStats,
@@ -150,7 +153,7 @@ func forwardDownlinkTxAckLoop() {
 			var gatewayID lorawan.EUI64
 			copy(gatewayID[:], txAck.GatewayId)
 
-			if err := integration.GetIntegration().PublishEvent(gatewayID, integration.EventAck, &txAck); err != nil {
+			if err := integration.GetIntegration().PublishEvent(context.TODO(), gatewayID, integration.EventAck, &txAck); err != nil {
 				log.WithError(err).WithFields(log.Fields{
 					"gateway_id": gatewayID,
 					"event_type": integration.EventAck,

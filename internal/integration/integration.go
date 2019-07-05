@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -47,7 +48,7 @@ type Integration interface {
 	UnsubscribeGateway(lorawan.EUI64) error
 
 	// PublishEvent publishes the given event.
-	PublishEvent(lorawan.EUI64, string, proto.Message) error
+	PublishEvent(context.Context, lorawan.EUI64, string, proto.Message) error
 
 	// PublishNotifyEvent publishes the given notify event.
 	PublishNotifyEvent(string, proto.Message) error

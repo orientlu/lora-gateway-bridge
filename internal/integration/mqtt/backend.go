@@ -2,6 +2,7 @@ package mqtt
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"github.com/brocaar/lora-gateway-bridge/internal/integration/mqtt/auth"
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/lorawan"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 // Backend implements a MQTT backend.
@@ -223,9 +225,12 @@ func (b *Backend) UnsubscribeGateway(gatewayID lorawan.EUI64) error {
 }
 
 // PublishEvent publishes the given event.
-func (b *Backend) PublishEvent(gatewayID lorawan.EUI64, event string, v proto.Message) error {
+func (b *Backend) PublishEvent(ctx context.Context, gatewayID lorawan.EUI64, event string, v proto.Message) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "publishEvent")
+	defer span.Finish()
+
 	return mqttPublishTimer(event, func() error {
-		return b.publish(gatewayID, event, v)
+		return b.publish(ctx, gatewayID, event, v)
 	})
 }
 
@@ -363,7 +368,10 @@ func (b *Backend) handleCommand(c paho.Client, msg paho.Message) {
 	}
 }
 
-func (b *Backend) publish(gatewayID lorawan.EUI64, event string, msg proto.Message) error {
+func (b *Backend) publish(ctx context.Context, gatewayID lorawan.EUI64, event string, msg proto.Message) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "publish")
+	defer span.Finish()
+
 	topic := bytes.NewBuffer(nil)
 	if err := b.eventTopicTemplate.Execute(topic, struct {
 		GatewayID lorawan.EUI64
