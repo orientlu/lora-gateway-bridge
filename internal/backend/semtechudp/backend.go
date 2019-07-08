@@ -70,10 +70,10 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	b := &Backend{
 		conn:              conn,
 		downlinkTXAckChan: make(chan gw.DownlinkTXAck),
-		uplinkFrameChan:   make(chan gw.UplinkFrame),
+		uplinkFrameChan:   make(chan gw.UplinkFrame, 500),
 		gatewayStatsChan:  make(chan gw.GatewayStats),
 		notifyMacChan:     make(chan gw.GatewayStats),
-		udpSendChan:       make(chan udpPacket),
+		udpSendChan:       make(chan udpPacket, 100),
 		gateways: gateways{
 			gateways:       make(map[lorawan.EUI64]gateway),
 			connectChan:    make(chan lorawan.EUI64),
@@ -441,7 +441,7 @@ func (b *Backend) handlePushData(ctx context.Context, up udpPacket) error {
 	if err != nil {
 		return err
 	}
-	span.LogKV("event", fmt.Sprintf("pushAck to chan, chan len: %d", len(b.udpSendChan)))
+	span.LogKV("event", fmt.Sprintf("pushAck to chan, chan len:%d/cap:%d", len(b.udpSendChan), cap(b.udpSendChan)))
 	b.udpSendChan <- udpPacket{
 		addr: up.addr,
 		data: bytes,
